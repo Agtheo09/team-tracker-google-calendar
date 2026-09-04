@@ -23,7 +23,6 @@ class SyncWorker:
         self,
         config_path: Path,
     ) -> None:
-
         self.config_path = config_path
 
         config = load_config(config_path)
@@ -32,17 +31,20 @@ class SyncWorker:
 
         self.competitions = load_competitions(config_path)
 
+        reminders = config.get(
+            "game",
+            {},
+        ).get(
+            "reminders",
+            [],
+        )
+
         self.calendar = GoogleCalendar(
             SETTINGS.google_credentials,
             SETTINGS.google_token,
             None,
-            reminders=config.get(
-                "game",
-                {},
-            ).get(
-                "reminders",
-                [],
-            ),
+            reminders=reminders,
+            teams=self.teams,
         )
 
         duration = config.get(
@@ -50,7 +52,7 @@ class SyncWorker:
             {},
         ).get(
             "duration_minutes",
-            150,
+            SETTINGS.game_duration_minutes,
         )
 
         gbl_url = (
@@ -81,7 +83,6 @@ class SyncWorker:
         }
 
     def run_once(self) -> None:
-
         now = datetime.now(SETTINGS.timezone_obj)
 
         end = now + timedelta(days=SETTINGS.lookahead_days)
@@ -91,13 +92,11 @@ class SyncWorker:
 
         for competition in self.competitions:
 
-            name = competition.lower()
-
-            provider = self.providers.get(name)
+            provider = self.providers.get(competition.lower())
 
             if provider is None:
                 LOG.warning(
-                    "No provider: %s",
+                    "No provider installed for competition=%s",
                     competition,
                 )
                 continue
@@ -108,15 +107,15 @@ class SyncWorker:
                     now,
                     end,
                 )
+
             except Exception:
                 LOG.exception(
-                    "Provider failed: %s",
+                    "Failed to fetch %s schedule",
                     competition,
                 )
                 continue
 
             for game in games:
-
                 total += 1
 
                 event_id, did_change = self.calendar.upsert(game)
@@ -137,20 +136,16 @@ class SyncWorker:
         )
 
     def run_forever(self) -> None:
-
         while True:
-
             try:
                 self.run_once()
 
             except Exception:
                 LOG.exception("Unexpected sync failure")
 
-            interval = SETTINGS.interval_hours * 3600
-
             LOG.info(
                 "Next sync in %d hours.",
                 SETTINGS.interval_hours,
             )
 
-            time.sleep(interval)
+            time.sleep(SETTINGS.interval_hours * 60 * 60)

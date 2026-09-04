@@ -11,7 +11,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from .models import Game
+from .models import Game, Team
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
@@ -26,10 +26,12 @@ class GoogleCalendar:
         token_path: Path,
         calendar_id: str | None = None,
         reminders: list[dict[str, Any]] | None = None,
+        teams: list[Team] | None = None,
     ) -> None:
         self.credentials_path = credentials_path
         self.token_path = token_path
         self.reminders = reminders or []
+        self.teams = teams or []
 
         self.service = build(
             "calendar",
@@ -38,10 +40,11 @@ class GoogleCalendar:
             cache_discovery=False,
         )
 
-        if calendar_id is None:
-            self.calendar_id = self.get_or_create_matches_calendar()
-        else:
-            self.calendar_id = calendar_id
+        self.calendar_id = (
+            self.get_or_create_matches_calendar()
+            if calendar_id is None
+            else calendar_id
+        )
 
     def _load_credentials(self) -> Credentials:
         if not self.token_path.exists():
@@ -89,10 +92,7 @@ class GoogleCalendar:
                 .execute()
             )
 
-            for calendar in response.get(
-                "items",
-                [],
-            ):
+            for calendar in response.get("items", []):
                 if calendar.get("summary") == MATCHES_CALENDAR_NAME:
                     return calendar["id"]
 
@@ -129,11 +129,25 @@ class GoogleCalendar:
         return hashlib.sha1(raw).hexdigest()
 
     @staticmethod
+    def payload_hash(
+        body: dict[str, Any],
+    ) -> str:
+        encoded = json.dumps(
+            body,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+
+        return hashlib.sha1(encoded).hexdigest()
+
+    @staticmethod
     def _iso(dt: datetime) -> str:
         return dt.isoformat()
 
     @staticmethod
-    def short_team_name(name: str) -> str:
+    def short_team_name(
+        name: str,
+    ) -> str:
         upper = name.upper()
 
         if "OLYMPIACOS" in upper:
@@ -156,13 +170,36 @@ class GoogleCalendar:
         self,
         game: Game,
     ) -> str | None:
-        title = game.title.upper()
+        """
+        Use the color_id from the configured team.
 
-        if "OLYMPIACOS" in title:
-            return "11"
+        If more than one configured team appears in a game
+        (e.g. Olympiacos vs Panathinaikos), the HOME team's
+        configured color wins.
+        """
 
-        if "PANATHINAIKOS" in title:
-            return "10"
+        home = game.home_team.upper()
+        away = game.away_team.upper()
+
+        # First: home team.
+        for team in self.teams:
+            if not team.enabled or not team.color_id:
+                continue
+
+            configured_name = team.name.upper()
+
+            if configured_name in home:
+                return team.color_id
+
+        # Second: away team.
+        for team in self.teams:
+            if not team.enabled or not team.color_id:
+                continue
+
+            configured_name = team.name.upper()
+
+            if configured_name in away:
+                return team.color_id
 
         return None
 
@@ -175,7 +212,7 @@ class GoogleCalendar:
 
         away_short = self.short_team_name(game.away_team)
 
-        # FULL names stay in the description.
+        # Keep the complete provider names in the description.
         description = [
             (f"🏀 {game.home_team} " f"vs {game.away_team}"),
             f"Competition: {game.competition}",
@@ -234,7 +271,6 @@ class GoogleCalendar:
         self,
         game: Game,
     ) -> tuple[str, bool]:
-
         body = self.event_body(game)
         event_id = body["id"]
 
@@ -248,11 +284,13 @@ class GoogleCalendar:
                 .execute()
             )
 
-            old = {key: existing.get(key) for key in body if key != "id"}
+            existing_comparable = {
+                key: existing.get(key) for key in body if key != "id"
+            }
 
-            new = {key: body.get(key) for key in body if key != "id"}
+            new_comparable = {key: body.get(key) for key in body if key != "id"}
 
-            if old != new:
+            if existing_comparable != new_comparable:
                 (
                     self.service.events()
                     .update(
