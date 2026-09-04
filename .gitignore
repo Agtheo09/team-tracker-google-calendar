@@ -1,0 +1,32 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local database
+data/*
+!data/.gitkeep
+*.db
+*.sqlite
+*.sqlite3
+
+# Google OAuth secrets
+credentials/*
+!credentials/.gitkeep
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+config.yaml

@@ -1,0 +1,15 @@
+services:
+  basketball-calendar-sync:
+    build: .
+    container_name: basketball-calendar-sync
+    restart: unless-stopped
+
+    volumes:
+      - ./credentials:/app/credentials
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+
+    environment:
+      PYTHONUNBUFFERED: "1"
+
+    command: python main.py
