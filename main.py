@@ -10,9 +10,15 @@ from app.sync import SyncWorker
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Sync configured basketball teams into Google Calendar.")
-    parser.add_argument("--once", action="store_true", help="Run a single sync and exit")
-    parser.add_argument("--config", default="config.yaml", help="Path to team/competition config YAML")
+    parser = argparse.ArgumentParser(
+        description="Sync configured basketball teams into Google Calendar."
+    )
+    parser.add_argument(
+        "--once", action="store_true", help="Run a single sync and exit"
+    )
+    parser.add_argument(
+        "--config", default="config.yaml", help="Path to team/competition config YAML"
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -26,7 +32,7 @@ def main() -> None:
             worker.run_once()
             if args.once:
                 break
-            time.sleep(SETTINGS.sync_interval_minutes * 60)
+            time.sleep(SETTINGS.interval_hours * 60 * 60)
     except KeyboardInterrupt:
         logging.getLogger("basketball-sync").info("Stopping")
     finally:

@@ -28,5 +28,3 @@ credentials/*
 Thumbs.db
 .vscode/
 .idea/
-
-config.yaml

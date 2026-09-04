@@ -1,0 +1,43 @@
+timezone: Europe/Athens
+
+sync:
+  interval_hours: 6
+  lookahead_days: 365
+
+calendar:
+  name: Matches
+
+game:
+  duration_minutes: 150
+
+  reminders:
+    - method: popup
+      minutes: 60
+
+    - method: popup
+      minutes: 15
+
+teams:
+  - key: olympiacos
+    name: Olympiacos
+    display_name: Olympiacos
+    provider_codes:
+      euroleague: OLY
+    color_id: "11"
+    enabled: true
+
+  - key: panathinaikos
+    name: Panathinaikos
+    display_name: Panathinaikos
+    provider_codes:
+      euroleague: PAN
+    color_id: "10"
+    enabled: true
+
+competitions:
+  - euroleague
+  - gbl
+
+providers:
+  gbl:
+    ics_url: ""
